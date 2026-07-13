@@ -1642,15 +1642,8 @@ async function cobrarDirecto(clienteId, idx, importeStr, numero, metodoPago) {
     window._updateCliente(clienteId, {facturas:facts}).catch(e=>console.warn(e));
   }
 
-  // ACTUALIZAR MOVIMIENTOS Y MOSTRAR FINANZAS
-  try {
-    const allMovs = movimientos.filter(m=>m.mes===mes);
-    const snap = {docs: allMovs.map(m=>({id:m.id,data:()=>m}))};
-    movimientos = [...movimientos.filter(m=>m.mes!==mes), ...snap.docs.map(d=>({id:d.id,...d.data()}))];
-  } catch(err) {
-    movimientos = [...movimientos, {id:"local_"+Date.now(), tipo:"ingreso", concepto, importe, fecha, mes, metodoPago, conFactura:true}];
-  }
-
+  // El listener en tiempo real de Firebase (movsRef.on) actualizará "movimientos" solo
+  // en cuanto llegue la confirmación — no lo tocamos aquí a mano para evitar duplicados.
   $("finMes").value = mes;
   switchTab("finanzas");
 
@@ -1695,46 +1688,6 @@ async function editarFechaCobro(clienteId, idx) {
   }
 
   toast(`✅ Fecha de cobro actualizada a ${nuevaFechaStr}`);
-}
-
-
-// =====================================================================
-// REGISTRAR INGRESO — FUNCIÓN CORE
-// =====================================================================
-async function addIngreso(concepto, importe, extra, fechaISO) {
-  const fecha = fechaISO || hoy();
-  const mes   = fecha.slice(0,7);
-  const num   = Number(importe) || 0;
-  const mov   = {tipo:"ingreso", concepto, importe:num, fecha, mes, ...(extra||{})};
-
-  // Cambiar a finanzas y mostrar spinner
-  $("finMes").value = mes;
-  switchTab("finanzas");
-  $("finList").innerHTML = '<div style="padding:20px;text-align:center;color:#6b7280;">Guardando ingreso…</div>';
-  $("finEmpty").style.display = "none";
-
-  // Escribir en Firestore usando firebase.firestore() directamente
-  try {
-    await window._saveMov(mov);
-  } catch(err) {
-    $("finList").innerHTML = `<div style="padding:20px;text-align:center;color:#dc2626;">❌ Error Firebase: ${err.message}</div>`;
-    toast("Error Firebase: " + err.message);
-    console.error("addIngreso error:", err);
-    return;
-  }
-
-  // Leer todos los movimientos del mes desde Firestore
-  try {
-    const allMovs = movimientos.filter(m=>m.mes===mes);
-    const snap = {docs: allMovs.map(m=>({id:m.id,data:()=>m}))};
-    movimientos = [...movimientos.filter(m=>m.mes!==mes), ...snap.docs.map(d=>({id:d.id,...d.data()}))];
-  } catch(err) {
-    // Si falla la lectura, añadir manualmente al array local
-    movimientos = [...movimientos, {id:"local_"+Date.now(), ...mov}];
-  }
-
-  renderFinanzas();
-  toast(`✅ ${num.toFixed(2)} € añadidos a Ingresos`);
 }
 
 // Botón de prueba Firebase
@@ -2193,9 +2146,10 @@ async function guardarGasto() {
       movimientos = movimientos.map(m => m.id===editandoGastoId ? {...m, concepto, importe, fecha, mes} : m);
       toast("✅ Gasto actualizado");
     } else {
-      const id = await window._saveMov({tipo:"gasto", concepto, importe, fecha, mes});
-      // Actualizar local al instante, sin esperar al listener de Firebase
-      movimientos = [...movimientos, {id, tipo:"gasto", concepto, importe, fecha, mes}];
+      await window._saveMov({tipo:"gasto", concepto, importe, fecha, mes});
+      // NO se añade a mano aquí — el listener en tiempo real de Firebase (movsRef.on)
+      // ya se encarga de actualizar "movimientos" y volver a pintar. Si lo hacemos
+      // también aquí, puede llegar a mostrarse el gasto duplicado un instante.
       toast("✅ Gasto añadido");
     }
     $("finMes").value = mes;
