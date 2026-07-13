@@ -706,11 +706,12 @@ $("eyeBtn").addEventListener("click", ()=>{
   icon.className = inp.type==="password" ? "fa-solid fa-eye" : "fa-solid fa-eye-slash";
 });
 
+let appYaArrancada = false;
 auth.onAuthStateChanged(user=>{
   if (user) {
     $("loginScreen").style.display = "none";
     $("appRoot").style.display = "block";
-    arrancarApp();
+    if(!appYaArrancada) { appYaArrancada = true; arrancarApp(); }
   } else {
     $("loginScreen").style.display = "flex";
     $("appRoot").style.display = "none";
