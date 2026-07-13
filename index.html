@@ -1403,12 +1403,13 @@ async function abrirPpto(clienteId, editIdx=null) {
 // =====================================================================
 async function guardarPpto() {
   const btn = $("savePpto");
-  if(btn.disabled) { btn.disabled=false; btn.textContent="Guardar presupuesto"; }
+  if(btn.disabled) return; // ya se está guardando, ignorar el segundo clic
+  btn.disabled = true; btn.textContent = "Guardando…";
   const resetBtn = setTimeout(()=>{ btn.disabled=false; btn.textContent="Guardar presupuesto"; }, 8000);
   const {clienteId, editIdx} = pptoContext||{};
-  if(!clienteId) { toast("Error: no hay cliente seleccionado"); return; }
+  if(!clienteId) { toast("Error: no hay cliente seleccionado"); clearTimeout(resetBtn); btn.disabled=false; btn.textContent="Guardar presupuesto"; return; }
   const c = clients.find(x=>x.id===clienteId);
-  if(!c) { toast("Error: cliente no encontrado"); return; }
+  if(!c) { toast("Error: cliente no encontrado"); clearTimeout(resetBtn); btn.disabled=false; btn.textContent="Guardar presupuesto"; return; }
 
   const numero  = $("pptoNum").value.trim();
   const concepto= $("pptoConcepto").value.trim();
@@ -1417,10 +1418,8 @@ async function guardarPpto() {
   const total   = parseFloat(totalRaw) || 0;
   const fechaISO= $("pptoFecha").value || hoy();
 
-  if(!numero) { toast("Escribe el número de presupuesto"); return; }
-  if(!lineas)  { toast("Escribe al menos una partida"); return; }
-
-  btn.textContent="Guardando…"; btn.disabled=true;
+  if(!numero) { toast("Escribe el número de presupuesto"); clearTimeout(resetBtn); btn.disabled=false; btn.textContent="Guardar presupuesto"; return; }
+  if(!lineas)  { toast("Escribe al menos una partida"); clearTimeout(resetBtn); btn.disabled=false; btn.textContent="Guardar presupuesto"; return; }
 
   try {
     const ppto = {
@@ -1535,10 +1534,11 @@ async function accionPpto(clienteId, idx, accion) {
 async function guardarFactura() {
   const btn = $("saveFact");
   if(btn.disabled) return;
+  btn.disabled = true; btn.textContent = "Guardando…";
   const {clienteId} = factContext||{};
-  if(!clienteId) return;
+  if(!clienteId) { btn.disabled=false; btn.textContent="Generar factura"; return; }
   const c = clients.find(x=>x.id===clienteId);
-  if(!c) { toast("Error: cliente no encontrado"); return; }
+  if(!c) { toast("Error: cliente no encontrado"); btn.disabled=false; btn.textContent="Generar factura"; return; }
 
   const numero  = $("factNum").value.trim();
   const concepto= $("factConcepto").value.trim();
@@ -1549,10 +1549,8 @@ async function guardarFactura() {
   const importe = parseFloat(importeRaw)||0;
   const fechaISO= $("factFecha").value || hoy();
 
-  if(!numero) { toast("Escribe el número de factura"); return; }
-  if(importe<=0) { toast("El importe debe ser mayor que 0"); return; }
-
-  btn.textContent="Guardando…"; btn.disabled=true;
+  if(!numero) { toast("Escribe el número de factura"); btn.disabled=false; btn.textContent="Generar factura"; return; }
+  if(importe<=0) { toast("El importe debe ser mayor que 0"); btn.disabled=false; btn.textContent="Generar factura"; return; }
 
   try {
     const factura = {
@@ -2176,6 +2174,7 @@ function editarMovimiento(id) {
 async function guardarGasto() {
   const btn = $("saveGasto");
   if(btn.disabled) return;
+  btn.disabled = true; // bloquear YA, antes de cualquier otra cosa, para evitar doble clic
 
   const concepto = $("gastoConcepto").value.trim();
   const importeRaw = $("gastoImporte").value.replace(",",".");
@@ -2183,10 +2182,10 @@ async function guardarGasto() {
   const fecha = /^\d{4}-\d{2}-\d{2}$/.test($("gastoFecha").value) ? $("gastoFecha").value : hoy();
   const mes = fecha.slice(0,7);
 
-  if(!concepto) { toast("Escribe en qué se ha gastado"); return; }
-  if(importe<=0) { toast("Importe no válido"); return; }
+  if(!concepto) { toast("Escribe en qué se ha gastado"); btn.disabled = false; return; }
+  if(importe<=0) { toast("Importe no válido"); btn.disabled = false; return; }
 
-  btn.textContent = "Guardando…"; btn.disabled = true;
+  btn.textContent = "Guardando…";
 
   try {
     if(editandoGastoId) {
