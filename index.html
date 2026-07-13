@@ -535,6 +535,17 @@ const $ = id => document.getElementById(id);
 // UTILIDADES
 // =====================================================================
 function hoy() { return new Date().toISOString().slice(0,10); }
+
+// Normaliza cualquier variante de "mes" guardada (con o sin ceros, con guiones sueltos, etc.)
+// a un formato AAAA-MM válido, para que siempre se pueda encontrar y seleccionar bien.
+function normalizarMes(mesStr) {
+  if(!mesStr) return mesActual();
+  const partes = String(mesStr).split("-").filter(Boolean);
+  const yy = parseInt(partes[0], 10);
+  const mm = parseInt(partes[1], 10);
+  if(!yy || !mm || mm<1 || mm>12) return mesActual();
+  return `${yy}-${String(mm).padStart(2,"0")}`;
+}
 function mesActual() { const d=new Date(); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0"); }
 function numFact(n) { return new Date().getFullYear()+"-"+String(n).padStart(3,"0"); }
 function numPpto(n) { return "P-"+new Date().getFullYear()+"-"+String(n).padStart(3,"0"); }
@@ -1085,8 +1096,8 @@ function renderPptosYFacturas(c) {
 // RENDER FINANZAS
 // =====================================================================
 function renderFinanzas() {
-  const mes = $("finMes").value || mesActual();
-  const delMes = movimientos.filter(m=>m.mes===mes);
+  const mes = normalizarMes($("finMes").value || mesActual());
+  const delMes = movimientos.filter(m=>normalizarMes(m.mes)===mes);
 
   const esTransferencia = m => m.metodoPago ? m.metodoPago==="transferencia" : m.conFactura===true;
   const esEfectivo      = m => m.metodoPago ? m.metodoPago==="efectivo"      : m.conFactura===false;
@@ -1127,7 +1138,7 @@ function renderFinanzas() {
       <div class="mov-row">
         <div class="mov-info">
           ${esc(m.concepto||"")}
-          <small>${esc(m.fecha||"")}${m.numero?" · Nº "+esc(m.numero):""}</small>
+          <small>${esc(fmtFecha(m.fecha))}${m.numero?" · Nº "+esc(m.numero):""}</small>
         </div>
         <div style="display:flex;align-items:center;gap:6px;">
           <span class="mov-importe ${esIngreso?"pos":"neg"}">${esIngreso?"+":"-"}${Number(m.importe||0).toFixed(2)} €</span>
@@ -1147,11 +1158,11 @@ function renderHistorialMeses() {
   const el = $("finHistorial");
   if(!el) return;
 
-  const meses = [...new Set(movimientos.map(m=>m.mes).filter(Boolean))].sort().reverse();
+  const meses = [...new Set(movimientos.map(m=>normalizarMes(m.mes)).filter(Boolean))].sort().reverse();
   if(!meses.length) { el.innerHTML = `<div style="font-size:13px; color:var(--muted); padding:8px 0;">Aún no hay movimientos registrados.</div>`; return; }
 
   el.innerHTML = meses.map(mes => {
-    const delMes = movimientos.filter(m=>m.mes===mes);
+    const delMes = movimientos.filter(m=>normalizarMes(m.mes)===mes);
     const ingresos = delMes.filter(m=>m.tipo==="ingreso").reduce((s,m)=>s+Number(m.importe||0),0);
     const gastosMes = delMes.filter(m=>m.tipo==="gasto").reduce((s,m)=>s+Number(m.importe||0),0);
     const balance = ingresos - gastosMes;
@@ -1169,7 +1180,7 @@ function renderHistorialMeses() {
 }
 
 function irAMes(mes) {
-  $("finMes").value = mes;
+  $("finMes").value = normalizarMes(mes);
   renderFinanzas();
 }
 
@@ -2247,8 +2258,8 @@ function exportarClientes() {
 }
 
 function exportarExcel(tipo) {
-  const mes = $("finMes").value || mesActual();
-  const filas = movimientos.filter(m=>m.tipo===tipo && m.mes===mes)
+  const mes = normalizarMes($("finMes").value || mesActual());
+  const filas = movimientos.filter(m=>m.tipo===tipo && normalizarMes(m.mes)===mes)
     .map(m=>({"Fecha":m.fecha||"","Concepto":m.concepto||"","Importe":Number(m.importe||0)}));
   if(!filas.length) { toast(`No hay ${tipo==="ingreso"?"ingresos":"gastos"} ese mes`); return; }
   const ws = XLSX.utils.json_to_sheet(filas);
@@ -2260,11 +2271,11 @@ function exportarExcel(tipo) {
 function exportarResumenAnual() {
   if(!movimientos.length) { toast("No hay movimientos registrados todavía"); return; }
 
-  const meses = [...new Set(movimientos.map(m=>m.mes).filter(Boolean))].sort();
+  const meses = [...new Set(movimientos.map(m=>normalizarMes(m.mes)).filter(Boolean))].sort();
 
   // Hoja 1: Resumen mensual (beneficio/pérdida por mes)
   const resumenFilas = meses.map(mes => {
-    const delMes = movimientos.filter(m=>m.mes===mes);
+    const delMes = movimientos.filter(m=>normalizarMes(m.mes)===mes);
     const ingresos = delMes.filter(m=>m.tipo==="ingreso").reduce((s,m)=>s+Number(m.importe||0),0);
     const gastos   = delMes.filter(m=>m.tipo==="gasto").reduce((s,m)=>s+Number(m.importe||0),0);
     let nombreMes = mes;
